@@ -14,7 +14,7 @@ index = sample(nrow(bankruptcy),nrow(bankruptcy)*0.70)
 bankrup_train = bankruptcy[index,] 
 bankrup_test = bankruptcy[-index,]
 
-#1) Exploratory Data Analysis
+#) Exploratory Data Analysis
 summary(bankrup_train)
 #On dependent variable
 barplot(table(bankrup_train$DLRSN), main = "Frequency", xlab = "DLRSN", ylab = "Observations")
@@ -26,19 +26,18 @@ for (i in 4:13)
 {
   hist((bankrup_train[,i]), main = paste(colnames(bankrup_train[i])), xlab = colnames(bankrup_train[i]), ylab = 'Frequency')}
 
-
-#2) Model Fitting
+#) Model Fitting - Logistic Regression
 library(MASS)
 bankrup.glm <- glm(DLRSN ~ R1 + R2 + R3 + R4 + R5 + R6 + R7 + R8 + R9 + R10, family=binomial, data=bankrup_train) 
 summary(bankrup.glm)
 AIC(bankrup.glm)
 BIC(bankrup.glm)
 
-
-#3) Improvising the Model
+#) Improvising the Model
 forward_step <- step(bankrup.glm,  direction = "forward")
 backward_step <- step(bankrup.glm,  direction = "backward")
 
+#Decided to go with Backward Elimination
 #Selection with AIC
 #Backward(if nothing is specified)
 bankruptcy_back = step(bankrup.glm)
@@ -49,13 +48,13 @@ BIC(bankruptcy_back)
 
 #Selection with BIC
 #Backward(if nothing is specified)
-##Optimal from AIC and BIC
 bankruptcy_back_BIC = step(bankrup.glm, k=log(nrow(bankrup_train)))
 summary(bankruptcy_back_BIC)
 bankruptcy_back_BIC$deviance
 AIC(bankruptcy_back_BIC)
 BIC(bankruptcy_back_BIC)
 
+#Backward with BIC is chosen(Optimal)
 #In-Sample-Prediction
 pred_resp <- predict(bankruptcy_back_BIC, type="response")
 par(mfrow = c(1,1))
@@ -87,9 +86,10 @@ cost1 <-function(r, pi, pcut){
 pcut <-1/(35+1)
 cost1(r = bankrup_train$DLRSN, pi = pred_resp, pcut)
 
-#4) Out-of-Sample Prediction
+#Out-of-Sample Prediction
 pred_resp_test = predict(bankruptcy_back_BIC, newdata = bankrup_test, type = 'response')
 hist(pred_resp_test)
+      
 #Confusion Matrix/ mis-classification rate
 table(bankrup_test$DLRSN, (pred_resp_test >0.5)*1, dnn=c("Truth","Predicted"))
 
@@ -114,8 +114,7 @@ cost1 <-function(r, pi, pcut){
 pcut <-1/(35+1)
 cost1(r = bankrup_test$DLRSN, pi = pred_resp_test, pcut)
 
-
-#5) Cross validation
+#Cross validation
 costfunc <-function(obs, pred.p)
 {
   weight1 <-35
@@ -146,10 +145,7 @@ plot(perf, colorize = TRUE)
 #AUC
 unlist(slot(performance(pred,"auc"),"y.values"))
 
-
-#6) Classification trees and neural net
-
-#7)Artificial Neural Network
+#Model Fitting - Artificial Neural Network
 library(neuralnet)
 bankruptcy_neuralnet<- neuralnet(DLRSN ~ R1 + R2 + R3 + R4 + R5 + R6 + R7 + R8 + R9 + R10, data = bankrup_train, hidden = 6, linear.output = FALSE)
 plot(bankruptcy_neuralnet)
@@ -215,17 +211,18 @@ cost <-function(r, phat){
 cost(bankrup_test$DLRSN, predict(bankruptcy_neuralnet, bankrup_test, type="prob"))
 
 
-##Classification Trees
+#Model Fitting - Classification Trees
 library(rpart)
 library(rpart.plot)
 bankruptcy_trees<- rpart(formula = DLRSN~ R1 + R2 + R3 + R4 + R5 + R6 + R7 + R8 + R9 + R10,data=bankrup_train, method = 'class', parms = list(loss = matrix(c(0,5,1,0), nrow=2)))
-#printing and plotting
+
+#Printing and Plotting
 print(bankruptcy_trees)
 prp(bankruptcy_trees, extra = 1)
 
 #Pruning
 bankruptcy_largetree = rpart(formula = DLRSN~ R1 + R2 + R3 + R4 + R5 + R6 + R7 + R8 + R9 + R10, data = bankrup_train, cp = 0.001)
-#printing and plotting
+#Printing and Plotting
 prp(bankruptcy_largetree)
 plotcp(bankruptcy_largetree)
 printcp(bankruptcy_largetree)
@@ -236,7 +233,7 @@ prp(treepruned)
 #Optimal tree model
 bankruptcy_final = rpart(formula = DLRSN~ R1 + R2 + R3 + R4 + R5 + R6 + R7 + R8 + R9 + R10, data = bankrup_train, cp = 0.017, method = 'class', parms = list(loss = matrix(c(0,5,1,0), nrow=2)))
 
-#In-sample-prediction
+#In-Sample-Prediction
 bankruptcy_insample<- predict(bankruptcy_final, bankrup_train, type="class")
 #Confusion Matrix
 table(bankrup_train$DLRSN, bankruptcy_insample, dnn=c("Truth", "Predicted"))
@@ -252,7 +249,6 @@ cost <-function(r, phat){
 
 #Actual cost
 cost(bankrup_train$DLRSN, predict(bankruptcy_final, bankrup_train, type="prob"))
-
 
 #Probability of getting 1
 bankrup_train_prob_rpart = predict(bankruptcy_final, bankrup_train, type="prob")
@@ -281,7 +277,6 @@ cost <-function(r, phat){
 
 #Actual cost
 cost(bankrup_test$DLRSN, predict(bankruptcy_final, bankrup_test, type="prob"))
-
 
 #Probability of getting 1
 bankrup_test_prob_rpart = predict(bankruptcy_final, bankrup_test, type="prob")
